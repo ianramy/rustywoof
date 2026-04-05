@@ -35,11 +35,14 @@ pub fn deploy_guard() -> Result<()> {
         .map_err(SystemError::GitHookFailed)?
         .permissions();
 
-    perms.set_mode(0o755);
+    #[cfg(unix)]
+    {
+        perms.set_mode(0o755);
 
     fs::set_permissions(hook_path, perms)
         .map_err(SystemError::GitHookFailed)
         .wrap_err("Failed to mark hook payload as executable.")?;
+    }
 
     println!("[INFO] Watchdog perimeter guard successfully deployed.");
     Ok(())
