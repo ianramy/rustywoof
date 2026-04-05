@@ -1,0 +1,68 @@
+name: Release Binaries
+
+# This workflow only runs when you push a new tag that starts with "v" (e.g., v0.1.1)
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+# Grant permission to upload files to GitHub Releases
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Don't cancel other OS builds if one fails
+      fail-fast: false
+      matrix:
+        include:
+          # Linux (x86_64)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: woof
+            asset_name: woof-linux-x86_64.tar.gz
+
+          # macOS (Apple Silicon / ARM64)
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary_name: woof
+            asset_name: woof-darwin-arm64.tar.gz
+
+          # Windows (x86_64)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_name: woof.exe
+            asset_name: woof-windows-x86_64.zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binary (macOS / Linux)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} ${{ matrix.binary_name }}
+          tar -czvf ${{ matrix.asset_name }} ${{ matrix.binary_name }}
+
+      - name: Package binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Copy-Item target\${{ matrix.target }}\release\${{ matrix.binary_name }} ${{ matrix.binary_name }}
+          Compress-Archive -Path ${{ matrix.binary_name }} -DestinationPath ${{ matrix.asset_name }}
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset_name }}
+          generate_release_notes: true
