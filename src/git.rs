@@ -3,6 +3,7 @@
 use crate::error::SystemError;
 use miette::{Result, WrapErr};
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
