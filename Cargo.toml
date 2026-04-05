@@ -1,0 +1,69 @@
+[package]
+name = "rustywoof"
+version = "0.1.0"
+edition = "2024"
+description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
+license = "MIT"
+repository = "https://github.com/ianramy/rustywoof"
+readme = "README.md"
+
+authors = ["Ian Ramy <dev@ianramy.co.ke>"]
+
+[[bin]]
+name = "woof"
+path = "src/main.rs"
+
+[dependencies]
+# The undisputed king of CLI argument parsing in Rust
+clap = { version = "4.5", features = ["derive"] }
+
+# For blazing fast multi-threading
+rayon = "1.10"
+
+# For smart directory traversal that respects .gitignore
+ignore = "0.4"
+
+# For beautiful, clean error handling
+anyhow = "1.0"
+
+# The standard Rust progress bar crate
+indicatif = "0.18"
+
+# The official Rust Regex engine
+regex = "1.10"
+
+# The standard framework for serializing and deserializing Rust data structures
+serde = { version = "1.0", features = ["derive"] }
+
+# For parsing and writing TOML files (like configuration or manifest files)
+toml = "0.8"
+
+# A powerful HTTP client for making network requests (using the synchronous/blocking API here)
+reqwest = { version = "0.13", features = ["blocking", "json"] }
+
+# For gorgeous, highly detailed diagnostic error messages and snippets in the terminal
+miette = { version = "7.6.0", features = ["fancy"] }
+
+# A convenient macro crate to effortlessly define and manage custom error types
+thiserror = "2.0.18"
+
+# For effortlessly parsing JSON API responses or generating JSON output reports
+serde_json = "1.0.149"
+
+# For fast substring searching in large text data
+aho-corasick = "1.1.4"
+
+# For parsing and writing YAML files (like configuration or manifest files)
+serde_yaml = "0.9.34"
+
+[profile.release]
+# Maximum performance optimization
+opt-level = 3
+# Link-time optimization (makes execution faster)
+lto = true
+# Maximizes LTO at the cost of slower compile times
+codegen-units = 1
+# Removes debug symbols to shrink the binary size
+strip = true
+# Improves performance and binary size
+panic = "abort"
