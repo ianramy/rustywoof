@@ -187,8 +187,40 @@ pub fn audit_dependencies() -> Result<bool> {
         }
     }
 
-    // Note: Implementing parsing for yarn.lock (custom format), pnpm-lock.yaml (requires serde_yaml),
-    // and bun.lockb (binary) follows this exact same pattern of reading -> decoding -> pushing to all_deps.
+    // 5. pnpm (pnpm-lock.yaml)
+    if Path::new("pnpm-lock.yaml").exists() {
+        lockfiles_found += 1;
+        let content = fs::read_to_string("pnpm-lock.yaml").into_diagnostic()?;
+
+        let parsed: serde_json::Value =
+            serde_yml::from_str(&content).map_err(|e| SystemError::LockfileParseError {
+                file_name: "pnpm-lock.yaml".to_string(),
+                source: e.into(),
+            })?;
+
+        // pnpm-lock.yaml structure puts dependencies under "importers" or "packages"
+        // This is a basic extraction assuming v6/v9 lockfile format
+        if let Some(packages) = parsed.get("packages").and_then(|p| p.as_object()) {
+            for (path, _) in packages {
+                // pnpm packages often look like "/@biomejs/biome@1.9.4" or "/react@18.2.0"
+                if path.is_empty() || !path.contains('@') {
+                    continue;
+                }
+
+                // Extremely basic parsing
+                let parts: Vec<&str> = path.trim_start_matches('/').rsplitn(2, '@').collect();
+                if parts.len() == 2 {
+                    let version = parts[0];
+                    let name = parts[1];
+                    all_deps.push((
+                        name.to_string(),
+                        version.to_string(),
+                        "npm".to_string(),
+                    ));
+                }
+            }
+        }
+    }
 
     if lockfiles_found == 0 {
         return Err(SystemError::NoLockfilesFound.into());
