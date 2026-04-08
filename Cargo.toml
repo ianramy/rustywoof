@@ -1,6 +1,6 @@
 [package]
 name = "rustywoof"
-version = "0.1.4"
+version = "0.1.5"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
@@ -37,7 +37,7 @@ regex = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 
 # For parsing and writing TOML files (like configuration or manifest files)
-toml = "0.8"
+toml = "1.1.2"
 
 # A powerful HTTP client for making network requests (using the synchronous/blocking API here)
 reqwest = { version = "0.13", features = ["blocking", "json"] }
@@ -57,6 +57,9 @@ aho-corasick = "1.1.4"
 # For parsing and writing YAML files (like configuration or manifest files)
 # Note: Changed `serde-yaml` to `serde-yml`
 serde_yml = "0.0.12"
+
+# For self-update functionality
+self_update = { version = "0.44.0", features = ["archive-tar", "archive-zip"] }
 
 [profile.release]
 # Maximum performance optimization

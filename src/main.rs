@@ -10,6 +10,7 @@ mod error;
 mod git;
 mod scanner;
 mod supply_chain;
+pub mod updater;
 
 #[derive(Parser)]
 #[command(
@@ -60,6 +61,9 @@ enum Commands {
 
     /// Executes a comprehensive perimeter sweep (Audit + Scan)
     Patrol,
+
+    /// Updates the Rustywoof engine to the latest version
+    Update,
 }
 
 #[derive(Subcommand)]
@@ -71,6 +75,9 @@ enum HookAction {
 }
 
 fn main() -> Result<()> {
+    // 1. Fire and forget the background update checker immediately
+    let update_receiver = crate::updater::spawn_update_checker();
+
     // Optional: Setup miette's graphical error handler strictly for terminal environments
     // This ensures colors and formatting are pristine.
     miette::set_hook(Box::new(|_| {
@@ -84,6 +91,7 @@ fn main() -> Result<()> {
     .unwrap_or_default();
 
     let cli = Cli::parse();
+    let mut exit_code = 0;
 
     match &cli.command {
         Commands::Init => {
@@ -102,14 +110,13 @@ fn main() -> Result<()> {
         Commands::Check { path } => {
             // In CI/CD, any finding should fail the build
             if !scanner::execute_sweep(path, true) {
-                process::exit(1);
+                exit_code = 1;
             }
         }
 
         Commands::Audit => {
             if !supply_chain::audit_dependencies()? {
-                // Return exit code 1 so users can chain commands like `woof audit && deploy`
-                process::exit(1);
+                exit_code = 1;
             }
         }
 
@@ -143,9 +150,26 @@ fn main() -> Result<()> {
                 println!(
                     "[INFO] Action Required: Review diagnostics above and remediate before pushing."
                 );
-                process::exit(1);
+                exit_code = 1;
             }
         }
+
+        Commands::Update => {
+            crate::updater::execute_update()?;
+        }
+    }
+
+    // 2. Check if the background thread found an update
+    if let Ok(Some(new_version)) = update_receiver.try_recv() {
+        println!(
+            "\n\x1b[33m[NOTICE]\x1b[0m A new engine update (v{}) is available! Run `woof update` to update.",
+            new_version
+        );
+    }
+
+    // 3. Gracefully exit with the correct system code
+    if exit_code != 0 {
+        process::exit(exit_code);
     }
 
     Ok(())
