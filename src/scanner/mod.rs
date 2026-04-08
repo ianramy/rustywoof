@@ -6,9 +6,12 @@ use crate::detector::entropy;
 use crate::detector::rules::{CORE_RULES, RULE_MATCHER};
 use ignore::WalkBuilder;
 use miette::{Diagnostic, NamedSource, Report, SourceSpan};
+use indicatif::{ProgressBar, ProgressStyle};
+use std::collections::VecDeque;
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use thiserror::Error;
 
 /// Maximum allowable file size to scan (5 Megabytes).
@@ -77,16 +80,31 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
     let scanned_count = Arc::new(AtomicUsize::new(0));
     let diagnostics: Arc<Mutex<Vec<SecurityDiagnostic>>> = Arc::new(Mutex::new(Vec::new()));
 
-    if !is_ci {
-        println!(
-            "[INFO] Watchdog perimeter sweep initiated on directory: {}",
-            target_path
+    // Thread-safe rolling queue to hold the last 4 scanned files
+    let recent_files: Arc<Mutex<VecDeque<String>>> = Arc::new(Mutex::new(VecDeque::with_capacity(4)));
+
+    // 1. Initialize the Progress Bar only if we are not in a CI environment
+    let spinner = if !is_ci {
+        let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(80));
+        pb.set_style(
+            ProgressStyle::with_template("{spinner:.cyan} {msg}")
+                .unwrap()
+                .tick_strings(&["⠋", "⠙", "⠚", "⠞", "⠖", "⠦", "⠴", "⠲", "⠳", "⠓"]),
         );
-    }
+        pb.set_message(format!("Initializing perimeter sweep on {}...", target_path));
+        Some(pb)
+    } else {
+        None
+    };
 
     walker.run(|| {
         let scanned_count = scanned_count.clone();
         let diagnostics = diagnostics.clone();
+
+        // 2. Clone the spinner and queue references so they can be safely moved into multiple worker threads
+        let worker_spinner = spinner.clone();
+        let worker_recent = recent_files.clone();
 
         Box::new(move |result| {
             if let Ok(entry) = result {
@@ -133,7 +151,7 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                             let diagnostic = SecurityDiagnostic {
                                 asset_type: rule.name.to_string(),
                                 err_code: rule.error_code.to_string(),
-                                remediation: enriched_remediation, // <-- Used here!
+                                remediation: enriched_remediation,
                                 src: NamedSource::new(entry.path().display().to_string(), safe_content),
                                 err_span: (absolute_start, length).into(),
                             };
@@ -141,6 +159,23 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                             let mut lock = diagnostics.lock().unwrap();
                             lock.push(diagnostic);
                         }
+                    }
+
+                    // 3. Dynamically update the rolling window of the last 4 scanned files
+                    if let Some(pb) = &worker_spinner {
+                        let mut recent = worker_recent.lock().unwrap();
+
+                        // Keep the window at exactly 4 items to prevent UI tearing
+                        if recent.len() >= 4 {
+                            recent.pop_front();
+                        }
+
+                        // \x1b[32m✓\x1b[0m is the standard ANSI escape code for a green tick
+                        recent.push_back(format!("\x1b[32m✓\x1b[0m {}", entry.path().display()));
+
+                        // Join the active queue with newlines and indentation for a clean UI block
+                        let display_text = recent.iter().cloned().collect::<Vec<_>>().join("\n  ");
+                        pb.set_message(format!("Analyzing perimeter...\n  {}", display_text));
                     }
                 }
             }
@@ -165,9 +200,14 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
             );
         }
     } else {
-        println!("[INFO] Sweep complete. Analyzed {} artifacts.", total_files);
+        // 4. Terminate the spinner gracefully, replacing the multiline block with a single final summary
+        if let Some(pb) = spinner {
+            pb.finish_and_clear();
+        }
+        println!("\n[INFO] Sweep complete. Analyzed {} files.", total_files);
+
         if all_findings.is_empty() {
-            println!("[INFO] Status: SECURE. No cryptographic assets exposed.");
+            println!("\x1b[32m✓\x1b[0m [INFO] Status: SECURE. No cryptographic assets exposed.");
         } else {
             println!(
                 "\n[CRITICAL] Perimeter breached! Found {} exposed assets.",
