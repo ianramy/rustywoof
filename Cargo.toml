@@ -1,14 +1,21 @@
 [package]
 name = "rustywoof"
-version = "0.1.5"
+version = "0.1.6"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
 license = "MIT"
 repository = "https://github.com/ianramy/rustywoof"
 readme = "README.md"
+homepage = "https://github.com/ianramy/rustywoof"
 
 authors = ["Ian Ramy <dev@ianramy.co.ke>"]
+
+[package.metadata.wix]
+upgrade-guid = "FCD8F69E-74ED-46F1-ABE6-88DAFB1C594C"
+path-guid = "18D494BF-BD02-45E7-87A5-48C1D46450A7"
+license = false
+eula = false
 
 [[bin]]
 name = "woof"
@@ -72,3 +79,8 @@ codegen-units = 1
 strip = true
 # Improves performance and binary size
 panic = "abort"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

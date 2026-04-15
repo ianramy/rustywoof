@@ -1,0 +1,10 @@
+[book]
+title = "Rustywoof Documentation"
+authors = ["ianramy"]
+language = "en"
+description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/ianramy/rustywoof"
+edit-url-template = "https://github.com/ianramy/rustywoof/edit/main/docs/src/{path}"
