@@ -309,6 +309,21 @@ jobs:
           node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Prepare binaries for cargo-npm
+        run: |
+          for file in target/distrib/*.tar.xz; do tar -xf "$file" -C target/distrib/ 2>/dev/null || true; done
+          for file in target/distrib/*.zip; do unzip -o -q "$file" -d target/distrib/ 2>/dev/null || true; done
+
+          for dir in target/distrib/rustywoof-*/; do
+            if [ -d "$dir" ]; then
+              dirname=$(basename "$dir")
+              triple=${dirname#"rustywoof-"}
+              mkdir -p "target/$triple/release"
+              mv "$dir/rustywoof" "target/$triple/release/" 2>/dev/null || true
+              mv "$dir/rustywoof.exe" "target/$triple/release/" 2>/dev/null || true
+            fi
+          done
+
       - name: Generate and Publish Clean npm Packages
         run: |
           # 1. Point cargo-npm to the binaries that cargo-dist already built
