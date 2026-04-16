@@ -106,6 +106,7 @@ jobs:
       # Typically there will be:
       # - 1 "global" task that builds universal installers
       # - N "local" tasks that build each platform's binaries and platform-specific installers
+      #
       matrix: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix }}
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container && matrix.container.image || null }}
@@ -311,39 +312,19 @@ jobs:
 
       - name: Prepare binaries for cargo-npm
         run: |
-          echo "=== 1. Extracting downloaded archives ==="
-          # Use find to locate archives anywhere and extract them in-place
-          find . -name "*.tar.xz" -execdir tar -xf {} \;
-          find . -name "*.zip" -execdir unzip -o -q {} \;
+          cd target/distrib
+          ls *.tar.xz | xargs -n1 tar -xf
+          ls *.zip | xargs -n1 unzip -o -q
 
-          echo "=== 2. Moving binaries to target directory ==="
-          # Find the extracted executables and route them to target/<triple>/release/
-          find . -type f \( -name "rustywoof" -o -name "rustywoof.exe" \) | while read -r bin_path; do
-            # Skip if it's already in a release folder
-            if [[ "$bin_path" == *"release/rustywoof"* ]]; then continue; fi
-
-            # Get the folder name it was extracted into (e.g., rustywoof-x86_64-pc-windows-msvc)
-            parent_dir=$(basename "$(dirname "$bin_path")")
-
-            # Strip the 'rustywoof-' prefix to get the raw target triple
-            triple=${parent_dir#"rustywoof-"}
-
-            # If a valid triple was found, move the binary
-            if [ "$triple" != "$parent_dir" ]; then
-              echo "Routing $triple binary..."
-              mkdir -p "target/$triple/release"
-              mv "$bin_path" "target/$triple/release/"
-            fi
+          for d in rustywoof-*/; do
+            triple=${d#rustywoof-}
+            mkdir -p "../$triple/release"
+            mv "$d"rustywoof* "../$triple/release/" 2>/dev/null || true
           done
-
-          echo "=== 3. Checking final target structure ==="
-          find target -type f -name "rustywoof*"
 
       - name: Generate and Publish Clean npm Packages
         run: |
-          # 1. Point cargo-npm to the binaries that cargo-dist already built
           cargo npm generate --infer-targets
-          # 2. Publish the generated packages to npm
           cargo npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
