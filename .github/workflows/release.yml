@@ -312,14 +312,24 @@ jobs:
 
       - name: Prepare binaries for cargo-npm
         run: |
-          cd target/distrib
-          ls *.tar.xz | xargs -n1 tar -xf
-          ls *.zip | xargs -n1 unzip -o -q
+          # 1. Extract archives directly into the workspace root
+          for f in target/distrib/*.tar.xz; do tar -xf "$f" 2>/dev/null || true; done
+          for f in target/distrib/*.zip; do unzip -o -q "$f" 2>/dev/null || true; done
 
-          for d in rustywoof-*/; do
-            triple=${d#rustywoof-}
-            mkdir -p "../$triple/release"
-            mv "$d"rustywoof* "../$triple/release/" 2>/dev/null || true
+          # 2. Iterate over the extracted folders (e.g., rustywoof-x86_64-apple-darwin)
+          for dir in rustywoof-*/; do
+            if [ -d "$dir" ]; then
+              # Strip trailing slash and prefix to get the raw architecture triple
+              dirname=${dir%/}
+              triple=${dirname#rustywoof-}
+
+              # Create the exact directory cargo-npm is looking for
+              mkdir -p "target/$triple/release"
+
+              # Move the binaries (handles both Linux/Mac and Windows .exe)
+              mv "$dir/rustywoof" "target/$triple/release/" 2>/dev/null || true
+              mv "$dir/rustywoof.exe" "target/$triple/release/" 2>/dev/null || true
+            fi
           done
 
       - name: Generate and Publish Clean npm Packages
