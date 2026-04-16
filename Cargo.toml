@@ -1,13 +1,13 @@
 [package]
 name = "rustywoof"
-version = "0.1.6"
+version = "0.1.7"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
 license = "MIT"
 repository = "https://github.com/ianramy/rustywoof"
 readme = "README.md"
-homepage = "https://github.com/ianramy/rustywoof"
+homepage = "https://ianramy.co.ke/rustywoof"
 
 authors = ["Ian Ramy <dev@ianramy.co.ke>"]
 
@@ -17,6 +17,13 @@ path-guid = "18D494BF-BD02-45E7-87A5-48C1D46450A7"
 license = false
 eula = false
 
+[package.metadata.npm]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc"
+]
 [[bin]]
 name = "woof"
 path = "src/main.rs"

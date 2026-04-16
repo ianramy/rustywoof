@@ -42,7 +42,7 @@ on:
   pull_request:
   push:
     tags:
-      - '**[0-9]+.[0-9]+.[0-9]+*'
+      - "**[0-9]+.[0-9]+.[0-9]+*"
 
 jobs:
   # Run 'dist plan' (or host) to determine what tasks we need to do
@@ -277,35 +277,44 @@ jobs:
           echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
 
           gh release create "${{ needs.plan.outputs.tag }}" --target "$RELEASE_COMMIT" $PRERELEASE_FLAG --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
+          publish-npm:
+              name: Publish to npm
+              needs:
+                - host
+              # Only run if the host job succeeded (meaning binaries are built and released)
+              if: ${{ always() && needs.host.result == 'success' }}
+              runs-on: ubuntu-22.04
+              steps:
+                - name: Checkout repository
+                  uses: actions/checkout@v6
+                  with:
+                    persist-credentials: false
 
-  publish-npm:
-    needs:
-      - plan
-      - host
-    runs-on: "ubuntu-22.04"
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      PLAN: ${{ needs.plan.outputs.val }}
-    if: ${{ !fromJson(needs.plan.outputs.val).announcement_is_prerelease || fromJson(needs.plan.outputs.val).publish_prereleases }}
-    steps:
-      - name: Fetch npm packages
-        uses: actions/download-artifact@v7
-        with:
-          pattern: artifacts-*
-          path: npm/
-          merge-multiple: true
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
-      - run: |
-          for release in $(echo "$PLAN" | jq --compact-output '.releases[] | select([.artifacts[] | endswith("-npm-package.tar.gz")] | any)'); do
-            pkg=$(echo "$release" | jq '.artifacts[] | select(endswith("-npm-package.tar.gz"))' --raw-output)
-            npm publish --access public "./npm/${pkg}"
-          done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+                - name: Install Rust
+                  run: rustup update stable
 
+                - name: Install cargo-npm
+                  run: cargo install cargo-npm
+
+                - name: Download compiled artifacts
+                  uses: actions/download-artifact@v7
+                  with:
+                    pattern: artifacts-*
+                    path: target/distrib/
+                    merge-multiple: true
+
+                - name: Setup Node.js
+                  uses: actions/setup-node@v4
+                  with:
+                    node-version: '20.x'
+                    registry-url: 'https://registry.npmjs.org'
+
+                - name: Generate and Publish Clean npm Packages
+                  run: |
+                    # Point cargo-npm to the binaries that cargo-dist already built
+                    cargo npm publish --infer-targets
+                  env:
+                    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   announce:
     needs:
       - plan
@@ -314,7 +323,7 @@ jobs:
     # use "always() && ..." to allow us to wait for all publish jobs while
     # still allowing individual publish jobs to skip themselves (for prereleases).
     # "host" however must run to completion, no skipping allowed!
-    if: ${{ always() && needs.host.result == 'success' && (needs.publish-npm.result == 'skipped' || needs.publish-npm.result == 'success') }}
+    if: ${{ always() && needs.host.result == 'success' }}
     runs-on: "ubuntu-22.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
