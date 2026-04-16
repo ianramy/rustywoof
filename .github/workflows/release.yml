@@ -312,7 +312,9 @@ jobs:
       - name: Generate and Publish Clean npm Packages
         run: |
           # Point cargo-npm to the binaries that cargo-dist already built
-          cargo npm publish --infer-targets
+          cargo npm generate --infer-targets
+          # Publish the generated packages to npm
+          cargo npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   announce:
