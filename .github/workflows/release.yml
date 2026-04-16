@@ -277,44 +277,44 @@ jobs:
           echo "$ANNOUNCEMENT_BODY" > $RUNNER_TEMP/notes.txt
 
           gh release create "${{ needs.plan.outputs.tag }}" --target "$RELEASE_COMMIT" $PRERELEASE_FLAG --title "$ANNOUNCEMENT_TITLE" --notes-file "$RUNNER_TEMP/notes.txt" artifacts/*
-          publish-npm:
-              name: Publish to npm
-              needs:
-                - host
-              # Only run if the host job succeeded (meaning binaries are built and released)
-              if: ${{ always() && needs.host.result == 'success' }}
-              runs-on: ubuntu-22.04
-              steps:
-                - name: Checkout repository
-                  uses: actions/checkout@v6
-                  with:
-                    persist-credentials: false
+  publish-npm:
+    name: Publish to npm
+    needs:
+      - host
+    # Only run if the host job succeeded (meaning binaries are built and released)
+    if: ${{ always() && needs.host.result == 'success' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
-                - name: Install Rust
-                  run: rustup update stable
+      - name: Install Rust
+        run: rustup update stable
 
-                - name: Install cargo-npm
-                  run: cargo install cargo-npm
+      - name: Install cargo-npm
+        run: cargo install cargo-npm
 
-                - name: Download compiled artifacts
-                  uses: actions/download-artifact@v7
-                  with:
-                    pattern: artifacts-*
-                    path: target/distrib/
-                    merge-multiple: true
+      - name: Download compiled artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: artifacts-*
+          path: target/distrib/
+          merge-multiple: true
 
-                - name: Setup Node.js
-                  uses: actions/setup-node@v4
-                  with:
-                    node-version: '20.x'
-                    registry-url: 'https://registry.npmjs.org'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          registry-url: "https://registry.npmjs.org"
 
-                - name: Generate and Publish Clean npm Packages
-                  run: |
-                    # Point cargo-npm to the binaries that cargo-dist already built
-                    cargo npm publish --infer-targets
-                  env:
-                    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Generate and Publish Clean npm Packages
+        run: |
+          # Point cargo-npm to the binaries that cargo-dist already built
+          cargo npm publish --infer-targets
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   announce:
     needs:
       - plan
