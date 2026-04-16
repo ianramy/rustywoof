@@ -311,18 +311,33 @@ jobs:
 
       - name: Prepare binaries for cargo-npm
         run: |
-          for file in target/distrib/*.tar.xz; do tar -xf "$file" -C target/distrib/ 2>/dev/null || true; done
-          for file in target/distrib/*.zip; do unzip -o -q "$file" -d target/distrib/ 2>/dev/null || true; done
+          echo "=== 1. Extracting downloaded archives ==="
+          # Use find to locate archives anywhere and extract them in-place
+          find . -name "*.tar.xz" -execdir tar -xf {} \;
+          find . -name "*.zip" -execdir unzip -o -q {} \;
 
-          for dir in target/distrib/rustywoof-*/; do
-            if [ -d "$dir" ]; then
-              dirname=$(basename "$dir")
-              triple=${dirname#"rustywoof-"}
+          echo "=== 2. Moving binaries to target directory ==="
+          # Find the extracted executables and route them to target/<triple>/release/
+          find . -type f \( -name "rustywoof" -o -name "rustywoof.exe" \) | while read -r bin_path; do
+            # Skip if it's already in a release folder
+            if [[ "$bin_path" == *"release/rustywoof"* ]]; then continue; fi
+
+            # Get the folder name it was extracted into (e.g., rustywoof-x86_64-pc-windows-msvc)
+            parent_dir=$(basename "$(dirname "$bin_path")")
+
+            # Strip the 'rustywoof-' prefix to get the raw target triple
+            triple=${parent_dir#"rustywoof-"}
+
+            # If a valid triple was found, move the binary
+            if [ "$triple" != "$parent_dir" ]; then
+              echo "Routing $triple binary..."
               mkdir -p "target/$triple/release"
-              mv "$dir/rustywoof" "target/$triple/release/" 2>/dev/null || true
-              mv "$dir/rustywoof.exe" "target/$triple/release/" 2>/dev/null || true
+              mv "$bin_path" "target/$triple/release/"
             fi
           done
+
+          echo "=== 3. Checking final target structure ==="
+          find target -type f -name "rustywoof*"
 
       - name: Generate and Publish Clean npm Packages
         run: |
