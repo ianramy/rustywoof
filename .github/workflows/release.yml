@@ -314,7 +314,15 @@ jobs:
         run: |
           # 1. Extract archives directly into the workspace root
           for f in target/distrib/*.tar.xz; do tar -xf "$f" 2>/dev/null || true; done
-          for f in target/distrib/*.zip; do unzip -o -q "$f" 2>/dev/null || true; done
+          # Force zip files to extract into a folder so the loop below catches it
+          for f in target/distrib/*.zip; do
+            if [ -f "$f" ]; then
+              # Get the filename without .zip (e.g., "rustywoof-x86_64-pc-windows-msvc")
+              folder=$(basename "$f" .zip)
+              # Extract the contents INTO that new folder
+              unzip -o -q "$f" -d "$folder" 2>/dev/null || true
+            fi
+          done
 
           # 2. Iterate over the extracted folders (e.g., rustywoof-x86_64-apple-darwin)
           for dir in rustywoof-*/; do
