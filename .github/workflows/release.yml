@@ -327,8 +327,8 @@ jobs:
               mkdir -p "target/$triple/release"
 
               # Move the binaries (handles both Linux/Mac and Windows .exe)
-              mv "$dir/rustywoof" "target/$triple/release/" 2>/dev/null || true
-              mv "$dir/rustywoof.exe" "target/$triple/release/" 2>/dev/null || true
+              mv "$dir/woof" "target/$triple/release/" || true
+              mv "$dir/woof.exe" "target/$triple/release/" || true
             fi
           done
 
