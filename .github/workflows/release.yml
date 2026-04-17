@@ -343,7 +343,7 @@ jobs:
       - name: Generate and Publish Clean npm Packages
         run: |
           cargo npm generate --infer-targets
-          cargo npm publish
+          cargo npm publish -- --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   announce:

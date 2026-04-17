@@ -24,6 +24,8 @@ targets = [
     "aarch64-apple-darwin",
     "x86_64-pc-windows-msvc"
 ]
+name = "@ianramy/rustywoof"
+
 [[bin]]
 name = "woof"
 path = "src/main.rs"
