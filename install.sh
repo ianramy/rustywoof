@@ -19,7 +19,7 @@ else
 fi
 
 REPO="ianramy/rustywoof"
-VERSION="v0.1.0"
+VERSION="v0.1.9"
 BINARY_NAME="woof-${OS}-${ARCH}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}"
 

@@ -31,23 +31,25 @@ ignore_paths = [
 fail_on_cvss = 7.0
 ```
 
-Core Sections
+## Core Sections
+
 [engine]
 This section governs how Rustywoof interacts with your host system's resources.
 
-max_file_size: The strict cutoff for file analysis. Massive log files or compressed database dumps will be automatically ignored to guarantee memory safety on constrained CI runners.
+`max_file_size`: The strict cutoff for file analysis. Massive log files or compressed database dumps will be automatically ignored to guarantee memory safety on constrained CI runners.
 
 [scanner]
 This section controls the behavior of the secret detection sweep.
 
-entropy_threshold: Determines how "random" a string needs to be before it is considered a legitimate cryptographic secret. If you are getting too many false positives on variable names, try slightly increasing this value.
+`entropy_threshold`: Determines how "random" a string needs to be before it is considered a legitimate cryptographic secret. If you are getting too many false positives on variable names, try slightly increasing this value.
 
-ignore_paths: A list of glob patterns or exact paths. Rustywoof uses this list to aggressively prune the file tree before the Aho-Corasick automaton even initializes, saving valuable milliseconds.
+`ignore_paths`: A list of glob patterns or exact paths. Rustywoof uses this list to aggressively prune the file tree before the Aho-Corasick automaton even initializes, saving valuable milliseconds.
 
-[!NOTE]
-Rustywoof automatically respects your .gitignore file. You only need to add paths to ignore_paths if they are checked into version control but should be excluded from security sweeps (like a folder of dummy credentials used strictly for unit testing).
+!!! note ".gitignore"
+
+	Rustywoof automatically respects your .gitignore file. You only need to add paths to ignore_paths if they are checked into version control but should be excluded from security sweeps (like a folder of dummy credentials used strictly for unit testing).
 
 [audit]
 This section manages the behavior of the Supply Chain Watchdog.
 
-fail_on_cvss: Allows you to set a severity floor. For example, setting this to 7.0 means woof audit will only fail your build for High or Critical vulnerabilities, while logging Low and Medium threats as warnings.
+`fail_on_cvss`: Allows you to set a severity floor. For example, setting this to 7.0 means `woof audit` will only fail your build for High or Critical vulnerabilities, while logging Low and Medium threats as warnings.

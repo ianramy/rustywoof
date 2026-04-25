@@ -1,6 +1,6 @@
 // src/updater.rs
 
-use miette::{miette, Result};
+use miette::{Result, miette};
 use self_update::backends::github::Update;
 use self_update::cargo_crate_version;
 use std::sync::mpsc;
@@ -16,6 +16,7 @@ pub fn execute_update() -> Result<()> {
         .bin_name("woof")
         .show_download_progress(true)
         .current_version(cargo_crate_version!())
+        .identifier(".tar.gz")
         .build()
         .map_err(|e| miette!("Failed to configure the update engine: {}", e))?
         .update()
@@ -54,7 +55,12 @@ pub fn spawn_update_checker() -> mpsc::Receiver<Option<String>> {
         {
             if let Ok(latest_release) = updater.get_latest_release() {
                 // Check if the remote version is strictly greater than our current version
-                if self_update::version::bump_is_greater(cargo_crate_version!(), &latest_release.version).unwrap_or(false) {
+                if self_update::version::bump_is_greater(
+                    cargo_crate_version!(),
+                    &latest_release.version,
+                )
+                .unwrap_or(false)
+                {
                     let _ = tx.send(Some(latest_release.version));
                     return;
                 }

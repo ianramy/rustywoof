@@ -1,0 +1,128 @@
+# mkdocs.yml
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Rustywoof
+site_description: Enterprise-grade secret scanner and supply chain watchdog.
+site_author: ianramy
+repo_url: https://github.com/ianramy/rustywoof
+repo_name: rustywoof
+
+theme:
+    name: material
+    logo: assets/logo.png
+    favicon: assets/favicon.ico
+    features:
+        - navigation.path
+        - navigation.instant
+        - navigation.instant.prefetch
+        - navigation.instant.progress
+        - navigation.sections
+        - navigation.indexes
+        - navigation.tracking
+        - navigation.tabs
+        - navigation.tabs.sticky
+        - content.code.annotate
+        - toc.follow
+        - navigation.footer
+        - navigation.top
+        - content.code.copy
+        - content.tabs.link
+        - search.suggest
+        - search.highlight
+    palette:
+        - media: "(prefers-color-scheme: light)"
+          scheme: default
+          primary: custom
+          accent: deep orange
+          toggle:
+              icon: material/brightness-7
+              name: Switch to dark mode
+        - media: "(prefers-color-scheme: dark)"
+          scheme: slate
+          primary: custom
+          accent: deep orange
+          toggle:
+              icon: material/brightness-4
+              name: Switch to light mode
+
+extra_css:
+    - stylesheets/typography.css
+    - stylesheets/light-theme.css
+    - stylesheets/dark-theme.css
+    - stylesheets/terminal.css
+    - stylesheets/animations.css
+    - stylesheets/landing.css
+
+extra_javascript:
+    - typescripts/extra.ts
+
+extra:
+    analytics:
+        provider: google
+        property: G-XXXXXXXXXX
+    social:
+        - icon: fontawesome/brands/rust
+          link: https://crates.io/crates/rustywoof
+          name: Install Rustywoof via Crates.io
+        - icon: fontawesome/brands/github
+          link: https://github.com/ianramy/rustywoof
+          name: Contribute to Rustywoof on GitHub
+        - icon: fontawesome/brands/npm
+          link: https://www.npmjs.com/package/@ianramy/rustywoof
+          name: Install Rustywoof via NPM
+
+markdown_extensions:
+    - admonition
+    - pymdownx.details
+    - pymdownx.snippets
+    - pymdownx.magiclink
+    - attr_list
+    - toc:
+          permalink: true
+          anchorlink: true
+          anchorlink_class: "toclink"
+    - md_in_html
+    - pymdownx.inlinehilite
+    - pymdownx.superfences:
+          custom_fences:
+              - name: mermaid
+                class: mermaid
+    - pymdownx.keys
+    - pymdownx.tasklist:
+          custom_checkbox: true
+    - pymdownx.highlight:
+          anchor_linenums: true
+          line_spans: __span
+          pygments_lang_class: true
+    - pymdownx.tabbed:
+          alternate_style: true
+    - pymdownx.emoji:
+          emoji_index: !!python/name:material.extensions.emoji.twemoji ""
+          emoji_generator: !!python/name:material.extensions.emoji.to_svg ""
+nav:
+    - Home: index.md
+    - Introduction:
+          - Getting Started: getting-started/README.md
+          - What is Rustywoof?: getting-started/what-is-rustywoof.md
+          - Install the Tool: getting-started/installation.md
+          - Explore Features: getting-started/features.md
+    - Understand Concepts:
+          - Core Architecture: concepts/README.md
+          - Grasp Perimeter Defense: concepts/perimeter-defense.md
+          - Master Secret Scanning: concepts/secret-scanning.md
+          - Secure the Supply Chain: concepts/supply-chain.md
+    - Execute CLI Commands:
+          - Command Reference: cli/README.md
+          - Initialize Configuration (init): cli/init.md
+          - Execute Help (help): cli/help.md
+          - Audit Environments (audit): cli/audit.md
+          - Check Dependencies (check): cli/check.md
+          - Manage Git Hooks (hook): cli/hook.md
+          - Patrol Network Rules (patrol): cli/patrol.md
+          - Remediate Vulnerabilities (remediate): cli/remediate.md
+          - Scan Directories (scan): cli/scan.md
+          - Update Definitions (update): cli/update.md
+    - Configure the Tool:
+          - Configuration Guide: config/README.md
+          - Modify woof.toml: config/woof-toml.md
+          - Design Custom Rules: config/custom-rules.md

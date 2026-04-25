@@ -1,0 +1,13 @@
+/*docs/stylesheets/light-theme.css*/
+
+[data-md-color-scheme="default"] {
+	--md-primary-fg-color: #803B20;
+	--md-primary-bg-color: #EDEDED;
+	--md-accent-fg-color: #2A3439;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 2.5rem;
+  width: auto;
+}

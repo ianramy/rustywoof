@@ -1,0 +1,29 @@
+/*docs/stylesheets/terminal.css*/
+
+.highlight.mac-terminal {
+    background-color: #1E1E1E !important;
+    border-radius: 8px !important;
+    padding-top: 2.5rem !important;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+    overflow: visible !important;
+}
+
+.highlight.mac-terminal::before {
+    content: "";
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ff5f56;
+    box-shadow: 20px 0 0 #ffbd2e, 40px 0 0 #27c93f;
+    z-index: 10;
+}
+
+.highlight.mac-terminal pre,
+.highlight.mac-terminal code {
+    background-color: transparent !important;
+    margin: 0 !important;
+}

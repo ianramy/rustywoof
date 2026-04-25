@@ -160,11 +160,13 @@ fn main() -> Result<()> {
     }
 
     // 2. Check if the background thread found an update
-    if let Ok(Some(new_version)) = update_receiver.try_recv() {
-        println!(
-            "\n\x1b[33m[NOTICE]\x1b[0m A new engine update (v{}) is available! Run `woof update` to update.",
-            new_version
-        );
+    if !matches!(cli.command, Commands::Update) {
+        if let Ok(Some(new_version)) = update_receiver.try_recv() {
+            println!(
+                "\n\x1b[33m[NOTICE]\x1b[0m A new engine update (v{}) is available! Run `woof update` to update.",
+                new_version
+            );
+        }
     }
 
     // 3. Gracefully exit with the correct system code
