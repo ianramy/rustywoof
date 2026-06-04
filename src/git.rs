@@ -9,6 +9,14 @@ use std::path::Path;
 
 const PRE_COMMIT_HOOK: &str = r#"#!/bin/sh
 # Watchdog Perimeter Defense Hook
+
+# [FIX] Check if woof is in the PATH before enforcing the hook
+if ! command -v woof >/dev/null 2>&1; then
+    echo "[WARN] Watchdog (woof) is not installed or not in PATH."
+    echo "[WARN] Skipping perimeter evaluation. Please install Rustywoof to secure commits."
+    exit 0
+fi
+
 echo "[INFO] Watchdog evaluating commit perimeter..."
 woof check .
 if [ $? -ne 0 ]; then

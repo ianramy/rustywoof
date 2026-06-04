@@ -3,6 +3,7 @@
 use clap::{Parser, Subcommand};
 use miette::Result;
 use std::process;
+use std::time::Duration;
 
 mod config;
 mod detector;
@@ -161,7 +162,7 @@ fn main() -> Result<()> {
 
     // 2. Check if the background thread found an update
     if !matches!(cli.command, Commands::Update) {
-        if let Ok(Some(new_version)) = update_receiver.try_recv() {
+        if let Ok(Some(new_version)) = update_receiver.recv_timeout(Duration::from_millis(150)) {
             println!(
                 "\n\x1b[33m[NOTICE]\x1b[0m A new engine update (v{}) is available! Run `woof update` to update.",
                 new_version

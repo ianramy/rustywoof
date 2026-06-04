@@ -1,21 +1,37 @@
 // src/config.rs
 
 use crate::error::SystemError;
-use miette::{Result, WrapErr, IntoDiagnostic};
+use miette::{IntoDiagnostic, Result, WrapErr};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub ignore_paths: Vec<String>,
     pub custom_rules: Vec<CustomRule>,
+    #[serde(default = "default_entropy")]
+    pub min_entropy: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CustomRule {
     pub name: String,
     pub pattern: String,
+}
+
+fn default_entropy() -> f32 {
+    3.0
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            ignore_paths: vec![],
+            custom_rules: vec![],
+            min_entropy: default_entropy(),
+        }
+    }
 }
 
 pub fn load_config() -> Result<Config> {
@@ -40,9 +56,11 @@ pub fn init_config() -> Result<()> {
             "target/".to_string(),
         ],
         custom_rules: vec![],
+        min_entropy: 3.0,
     };
 
-    let toml_content = toml::to_string_pretty(&config).map_err(SystemError::ConfigSerializeFailed)?;
+    let toml_content =
+        toml::to_string_pretty(&config).map_err(SystemError::ConfigSerializeFailed)?;
 
     fs::write(".woof.toml", toml_content)
         .map_err(SystemError::ConfigWriteFailed)

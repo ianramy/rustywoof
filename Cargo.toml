@@ -1,6 +1,6 @@
 [package]
 name = "rustywoof"
-version = "0.1.9"
+version = "0.2.0"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
@@ -70,12 +70,14 @@ serde_json = "1.0.149"
 # For fast substring searching in large text data
 aho-corasick = "1.1.4"
 
-# For parsing and writing YAML files (like configuration or manifest files)
-# Note: Changed `serde-yaml` to `serde-yml`
-serde_yml = "0.0.12"
-
 # For self-update functionality
 self_update = { version = "0.44.0", features = ["archive-tar", "archive-zip"] }
+
+# For blazing fast, zero-copy memory-mapped file reading
+memmap2 = "0.9.10"
+
+# For serializing and deserializing Rust data structures
+serde_norway = "0.9.42"
 
 [profile.release]
 # Maximum performance optimization

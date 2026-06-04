@@ -5,11 +5,14 @@ pub mod env_guard;
 use crate::detector::entropy;
 use crate::detector::rules::{CORE_RULES, RULE_MATCHER};
 use ignore::WalkBuilder;
-use miette::{Diagnostic, NamedSource, Report, SourceSpan};
+use ignore::overrides::OverrideBuilder;
 use indicatif::{ProgressBar, ProgressStyle};
+use memmap2::MmapOptions;
+use miette::{Diagnostic, NamedSource, Report, SourceSpan};
 use std::collections::VecDeque;
-use std::fs;
+use std::fs::File;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
@@ -72,16 +75,27 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
         .hidden(false)
         .filter_entry(|e| e.file_name() != ".git")
         .ignore(false);
-    for path in config.ignore_paths {
-        builder.add_ignore(path);
+
+    if !config.ignore_paths.is_empty() {
+        let mut overrides = OverrideBuilder::new(target_path);
+        for path in config.ignore_paths {
+            // Prepend "!" to the path to tell the builder to ignore it
+            let _ = overrides.add(&format!("!{}", path));
+        }
+        if let Ok(ov) = overrides.build() {
+            builder.overrides(ov);
+        } else {
+            println!("[WARN] Failed to compile ignore overrides from .woof.toml");
+        }
     }
 
     let walker = builder.build_parallel();
     let scanned_count = Arc::new(AtomicUsize::new(0));
-    let diagnostics: Arc<Mutex<Vec<SecurityDiagnostic>>> = Arc::new(Mutex::new(Vec::new()));
+    let (tx, rx) = mpsc::channel::<SecurityDiagnostic>();
 
     // Thread-safe rolling queue to hold the last 4 scanned files
-    let recent_files: Arc<Mutex<VecDeque<String>>> = Arc::new(Mutex::new(VecDeque::with_capacity(4)));
+    let recent_files: Arc<Mutex<VecDeque<String>>> =
+        Arc::new(Mutex::new(VecDeque::with_capacity(4)));
 
     // 1. Initialize the Progress Bar only if we are not in a CI environment
     let spinner = if !is_ci {
@@ -92,7 +106,10 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                 .unwrap()
                 .tick_strings(&["⠋", "⠙", "⠚", "⠞", "⠖", "⠦", "⠴", "⠲", "⠳", "⠓"]),
         );
-        pb.set_message(format!("Initializing perimeter sweep on {}...", target_path));
+        pb.set_message(format!(
+            "Initializing perimeter sweep on {}...",
+            target_path
+        ));
         Some(pb)
     } else {
         None
@@ -100,7 +117,7 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
 
     walker.run(|| {
         let scanned_count = scanned_count.clone();
-        let diagnostics = diagnostics.clone();
+        let tx = tx.clone();
 
         // 2. Clone the spinner and queue references so they can be safely moved into multiple worker threads
         let worker_spinner = spinner.clone();
@@ -119,12 +136,25 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                     }
                 }
 
-                // If read_to_string fails, it's likely a binary file. Gracefully skip.
-                if let Ok(content) = fs::read_to_string(entry.path()) {
+                let file = match File::open(entry.path()) {
+                    Ok(f) => f,
+                    Err(_) => return ignore::WalkState::Continue,
+                };
+
+                let mmap = match unsafe { MmapOptions::new().map(&file) } {
+                    Ok(m) => m,
+                    Err(_) => return ignore::WalkState::Continue,
+                };
+
+                // Binary Fast-Fail Heuristic
+                let check_len = std::cmp::min(mmap.len(), 512);
+                if mmap[..check_len].contains(&0) {
+                    return ignore::WalkState::Continue;
+                } // Ensure the file is valid UTF-8 before running the rules
+                if let Ok(content) = std::str::from_utf8(&mmap) {
                     scanned_count.fetch_add(1, Ordering::Relaxed);
 
-                    // High-Speed Filter: Scan for all prefixes simultaneously in O(n) time
-                    let matches = RULE_MATCHER.find_iter(&content);
+                    let matches = RULE_MATCHER.find_iter(content);
 
                     for mat in matches {
                         let rule = &CORE_RULES[mat.pattern().as_usize()];
@@ -134,30 +164,37 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                             let length = regex_match.end() - regex_match.start();
                             let matched_secret = regex_match.as_str();
 
-                            // Use our orphaned entropy function!
-                            let entropy_score = entropy::calculate_shannon_entropy(matched_secret.as_bytes());
+                            let entropy_score =
+                                entropy::calculate_shannon_entropy(matched_secret.as_bytes());
 
-                            let mut safe_content = content.clone();
+                            if entropy_score < config.min_entropy {
+                                continue;
+                            }
+
+                            let mut safe_content = content.to_string();
                             let redaction = "*".repeat(length);
-                            safe_content.replace_range(absolute_start..(absolute_start + length), &redaction);
+                            safe_content.replace_range(
+                                absolute_start..(absolute_start + length),
+                                &redaction,
+                            );
 
-                            // Inject the Entropy Score into the remediation text
                             let enriched_remediation = format!(
                                 "{} (Calculated Entropy Score: {:.2})",
-                                rule.remediation,
-                                entropy_score
+                                rule.remediation, entropy_score
                             );
 
                             let diagnostic = SecurityDiagnostic {
                                 asset_type: rule.name.to_string(),
                                 err_code: rule.error_code.to_string(),
                                 remediation: enriched_remediation,
-                                src: NamedSource::new(entry.path().display().to_string(), safe_content),
+                                src: NamedSource::new(
+                                    entry.path().display().to_string(),
+                                    safe_content,
+                                ),
                                 err_span: (absolute_start, length).into(),
                             };
 
-                            let mut lock = diagnostics.lock().unwrap();
-                            lock.push(diagnostic);
+                            let _ = tx.send(diagnostic);
                         }
                     }
 
@@ -183,8 +220,10 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
         })
     });
 
+    drop(tx);
+
     let total_files = scanned_count.load(Ordering::Relaxed);
-    let all_findings = diagnostics.lock().unwrap();
+    let all_findings: Vec<SecurityDiagnostic> = rx.into_iter().collect();
 
     if is_ci {
         if all_findings.is_empty() {
