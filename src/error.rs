@@ -22,11 +22,11 @@ pub enum SystemError {
     ConfigParseFailed(#[source] toml::de::Error),
 
     #[error("Configuration Serialization Failed")]
-        #[diagnostic(
-            code(woof::config::serialize_error),
-            help("Failed to write the default configuration to string formatting.")
-        )]
-        ConfigSerializeFailed(#[source] toml::ser::Error),
+    #[diagnostic(
+        code(woof::config::serialize_error),
+        help("Failed to write the default configuration to string formatting.")
+    )]
+    ConfigSerializeFailed(#[source] toml::ser::Error),
 
     #[error("Perimeter Guard Hook Failure")]
     #[diagnostic(

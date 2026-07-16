@@ -20,7 +20,10 @@ pub fn secure_perimeter() -> Result<()> {
     if !gitignore_exists {
         println!("\n[WARN] Watchdog detected a `.env` file, but no `.gitignore` exists.");
         let lang_ignore = detect_and_generate_gitignore();
-        if prompt_auto_fix("Generate a secure .gitignore to quarantine the .env file?", 3) {
+        if prompt_auto_fix(
+            "Generate a secure .gitignore to quarantine the .env file?",
+            3,
+        ) {
             fs::write(".gitignore", lang_ignore).expect("Failed to write .gitignore");
             println!("[INFO] Perimeter secured. `.gitignore` generated and `.env` quarantined.");
         }
@@ -29,11 +32,16 @@ pub fn secure_perimeter() -> Result<()> {
 
     // Check if .env is properly ignored
     let gitignore_content = fs::read_to_string(".gitignore").unwrap_or_default();
-    let is_ignored = gitignore_content.lines().any(|line| line.trim() == ".env" || line.trim() == ".env.*");
+    let is_ignored = gitignore_content
+        .lines()
+        .any(|line| line.trim() == ".env" || line.trim() == ".env.*");
 
     if !is_ignored {
         println!("\n[CRITICAL] Watchdog found a `.env` file that is NOT tracked by `.gitignore`.");
-        if prompt_auto_fix("Append `.env` to `.gitignore` automatically to prevent leakage?", 3) {
+        if prompt_auto_fix(
+            "Append `.env` to `.gitignore` automatically to prevent leakage?",
+            3,
+        ) {
             let mut file = OpenOptions::new()
                 .append(true)
                 .open(".gitignore")
@@ -71,9 +79,7 @@ fn prompt_auto_fix(message: &str, timeout_secs: u64) -> bool {
 
     // Block the main thread for a maximum of `timeout_secs`
     match rx.recv_timeout(Duration::from_secs(timeout_secs)) {
-        Ok(input) => {
-            input.is_empty() || input == "y" || input == "yes"
-        }
+        Ok(input) => input.is_empty() || input == "y" || input == "yes",
         Err(_) => {
             println!("\n[INFO] Timeout reached. Watchdog auto-applying defensive measure.");
             true

@@ -45,27 +45,24 @@ pub fn spawn_update_checker() -> mpsc::Receiver<Option<String>> {
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
-        // We silently ignore errors here. If the network is down, we just don't notify them.
+        // Silently ignore errors here. If network is down, we don't notify.
         if let Ok(updater) = Update::configure()
             .repo_owner("ianramy")
             .repo_name("rustywoof")
             .bin_name("woof")
             .current_version(cargo_crate_version!())
             .build()
+            && let Ok(latest_release) = updater.get_latest_release()
+            && self_update::version::bump_is_greater(
+                cargo_crate_version!(),
+                &latest_release.version,
+            )
+            .unwrap_or(false)
         {
-            if let Ok(latest_release) = updater.get_latest_release() {
-                // Check if the remote version is strictly greater than our current version
-                if self_update::version::bump_is_greater(
-                    cargo_crate_version!(),
-                    &latest_release.version,
-                )
-                .unwrap_or(false)
-                {
-                    let _ = tx.send(Some(latest_release.version));
-                    return;
-                }
-            }
+            let _ = tx.send(Some(latest_release.version));
+            return;
         }
+
         let _ = tx.send(None);
     });
 

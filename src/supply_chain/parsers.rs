@@ -25,7 +25,8 @@ struct PnpmLockfile {
 }
 
 /// Sweeps the directory for lockfiles and extracts all dependencies.
-pub fn extract_dependencies() -> Result<(Vec<(String, String, String)>, usize)> {
+pub type DependencyData = (Vec<(String, String, String)>, usize);
+pub fn extract_dependencies() -> Result<DependencyData> {
     let mut all_deps: Vec<(String, String, String)> = Vec::new();
     let mut lockfiles_found = 0;
 
@@ -159,10 +160,12 @@ pub fn extract_dependencies() -> Result<(Vec<(String, String, String)>, usize)> 
             let trimmed = line.trim();
             if !line.starts_with(' ') && line.contains('@') && line.ends_with(':') {
                 let clean_line = trimmed.trim_matches('"').trim_matches(':');
-                if let Some(idx) = clean_line.rfind('@') {
-                    if idx > 0 {
-                        current_pkg = clean_line[..idx].to_string();
-                    }
+
+                // Collapsed `rfind` and `idx > 0` check here:
+                if let Some(idx) = clean_line.rfind('@')
+                    && idx > 0
+                {
+                    current_pkg = clean_line[..idx].to_string();
                 }
             } else if trimmed.starts_with("version ") && !current_pkg.is_empty() {
                 let version = trimmed.replace("version ", "").replace('\"', "");

@@ -48,7 +48,7 @@ impl Diagnostic for SecurityDiagnostic {
         Some(Box::new(std::iter::once(
             miette::LabeledSpan::new_with_span(
                 Some("Exposure found here".to_string()),
-                self.err_span.clone(),
+                self.err_span,
             ),
         )))
     }
@@ -125,15 +125,15 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
 
         Box::new(move |result| {
             if let Ok(entry) = result {
-                if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+                if !entry.file_type().is_some_and(|ft| ft.is_file()) {
                     return ignore::WalkState::Continue;
                 }
 
                 // Memory Safety: Skip massive files
-                if let Ok(metadata) = entry.metadata() {
-                    if metadata.len() > MAX_FILE_SIZE_BYTES {
-                        return ignore::WalkState::Continue;
-                    }
+                if let Ok(metadata) = entry.metadata()
+                    && metadata.len() > MAX_FILE_SIZE_BYTES
+                {
+                    return ignore::WalkState::Continue;
                 }
 
                 let file = match File::open(entry.path()) {
@@ -260,7 +260,7 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                         err_code: finding.err_code.clone(),
                         remediation: finding.remediation.clone(),
                         src: finding.src.clone(),
-                        err_span: finding.err_span.clone(),
+                        err_span: finding.err_span,
                     })
                 );
             }
