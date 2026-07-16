@@ -1,10 +1,10 @@
 [package]
 name = "rustywoof"
-version = "0.2.0"
+version = "0.2.1"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
-license = "MIT"
+license = "GPL-3.0-only"
 repository = "https://github.com/ianramy/rustywoof"
 readme = "README.md"
 homepage = "https://ianramy.co.ke/rustywoof"
