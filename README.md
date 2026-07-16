@@ -1,11 +1,16 @@
-# Rustywoof
-
-[![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg)](https://github.com/ianramy/rustywoof/releases)
-[![Language](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Category](https://img.shields.io/badge/category-Cybersecurity-red.svg)]()
-[![Integration](https://img.shields.io/badge/integration-OSV_Database-purple.svg)](https://osv.dev/)
-[![Status](https://img.shields.io/badge/status-Open_Source-brightgreen.svg)]()
+<div align="center">
+  <img src="https://www.ianramy.co.ke/rustywoof/assets/logo.png" width="250" />
+  <h1 align="center">
+   Rustywoof
+  </h1>
+  <br>
+  
+  [![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg?style=flat-square&logo=rust)]()
+  [![License: GPL-3.0](https://img.shields.io/badge/License-GPL_3.0-green.svg?style=flat-square&logo=gnu)](https://opensource.org/licenses/gpl-3.0)
+  [![Category](https://img.shields.io/badge/category-Cybersecurity-red.svg)]()
+  [![Integration](https://img.shields.io/badge/integration-OSV_Database-purple.svg)](https://osv.dev/)
+  [![Status](https://img.shields.io/badge/status-Open_Source-brightgreen.svg?style=flat-square&logo=github)]()
+</div>
 
 **Enterprise-grade perimeter defense, secret scanner, and supply chain watchdog.**
 
@@ -155,4 +160,5 @@ pattern = "api_prod_[a-zA-Z0-9]{32}"
 
 ## License
 
-This software is distributed under the [MIT License](LICENSE). See the LICENSE file in the repository for full details.
+This software is distributed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html). 
+See the [LICENSE](LICENSE) file in the repository for full details.
