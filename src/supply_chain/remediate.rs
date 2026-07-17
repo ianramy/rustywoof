@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 /// Automates package manager commands to force a secure version of a dependency.
 pub fn remediate_vulnerability(package: &str, target_version: &str) -> Result<()> {
     println!(
-        "[INFO] Remediating {} to version {}...",
+        "\x1b[1;32m[INFO]\x1b[0m Remediating {} to version {}...",
         package, target_version
     );
 
@@ -31,10 +31,10 @@ pub fn remediate_vulnerability(package: &str, target_version: &str) -> Result<()
         .into_diagnostic()?;
 
     if status.success() {
-        println!("[INFO] Remediation successful. Asset locked to secure version.");
+        println!("\x1b[1;32m[INFO] Remediation successful. Asset locked to secure version.\x1b[0m");
     } else {
         miette::bail!(
-            "[ERROR] Remediation failed. Ensure your package manager is installed and functioning."
+            "\x1b[1;31m[ERROR] Remediation failed.\x1b[0m Ensure your package manager is installed and functioning."
         );
     }
 

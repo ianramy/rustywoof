@@ -1,0 +1,99 @@
+// src/supply_chain/parsers/poetry.rs
+
+use crate::error::SystemError;
+use crate::graph::models::{
+    DependencyEdge, DependencyGraph, DependencyKind, Ecosystem, PackageNode,
+};
+use crate::supply_chain::parsers::traits::GraphParser;
+use miette::{IntoDiagnostic, Result};
+use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
+
+pub struct PoetryParser;
+
+impl GraphParser for PoetryParser {
+    fn can_parse(&self, directory: &Path) -> bool {
+        directory.join("poetry.lock").exists()
+    }
+
+    fn parse_graph(&self, directory: &Path) -> Result<DependencyGraph> {
+        let lock_path = directory.join("poetry.lock");
+        let content = fs::read_to_string(&lock_path).into_diagnostic()?;
+
+        let parsed: toml::Value =
+            toml::from_str(&content).map_err(|e| SystemError::LockfileParseError {
+                file_name: "poetry.lock".to_string(),
+                source: e.into(),
+            })?;
+
+        let mut graph = DependencyGraph::new();
+        let mut node_map: HashMap<String, petgraph::graph::NodeIndex> = HashMap::new();
+
+        let packages = parsed
+            .get("package")
+            .and_then(|p| p.as_array())
+            .ok_or_else(|| SystemError::LockfileParseError {
+                file_name: "poetry.lock".to_string(),
+                source: std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "Missing 'package' array",
+                )
+                .into(),
+            })?;
+
+        // Pass 1: Generate Nodes
+        for pkg in packages {
+            let name = pkg
+                .get("name")
+                .and_then(|n| n.as_str())
+                .unwrap_or_default()
+                .to_string();
+            let version = pkg
+                .get("version")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+
+            if name.is_empty() || version.is_empty() {
+                continue;
+            }
+
+            let node = PackageNode {
+                name: name.clone(),
+                version,
+                ecosystem: Ecosystem::Pip,
+                is_vulnerable: false,
+            };
+
+            let idx = graph.add_node(node);
+            node_map.insert(name, idx);
+        }
+
+        // Pass 2: Generate Edges
+        for pkg in packages {
+            let parent_name = pkg.get("name").and_then(|n| n.as_str()).unwrap_or_default();
+
+            if let Some(&p_idx) = node_map.get(parent_name)
+                && let Some(deps) = pkg.get("dependencies").and_then(|d| d.as_table())
+            {
+                for (dep_name, dep_val) in deps {
+                    let requirement = dep_val.as_str().unwrap_or("*").to_string();
+
+                    if let Some(&c_idx) = node_map.get(dep_name) {
+                        graph.add_edge(
+                            p_idx,
+                            c_idx,
+                            DependencyEdge {
+                                requirement,
+                                kind: DependencyKind::Runtime,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(graph)
+    }
+}
