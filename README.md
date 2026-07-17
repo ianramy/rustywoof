@@ -4,12 +4,14 @@
    Rustywoof
   </h1>
   <br>
-  
-  [![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg?style=flat-square&logo=rust)]()
+
+  [![Build](https://img.shields.io/badge/build-Passing-green.svg?style=flat-square&logo=rust)]()
+  [![Version](https://img.shields.io/badge/version-v0.2.2-orange.svg?style=flat-square&logo=rust)]()
   [![License: GPL-3.0](https://img.shields.io/badge/License-GPL_3.0-green.svg?style=flat-square&logo=gnu)](https://opensource.org/licenses/gpl-3.0)
   [![Category](https://img.shields.io/badge/category-Cybersecurity-red.svg)]()
   [![Integration](https://img.shields.io/badge/integration-OSV_Database-purple.svg)](https://osv.dev/)
   [![Status](https://img.shields.io/badge/status-Open_Source-brightgreen.svg?style=flat-square&logo=github)]()
+  [![Docs](https://img.shields.io/badge/docs-Available-blue.svg?style=flat-square&logo=readthedocs)]()
 </div>
 
 **Enterprise-grade perimeter defense, secret scanner, and supply chain watchdog.**
@@ -48,6 +50,7 @@ We recognize that running a security binary locally requires absolute trust. Rus
 
 * **OSV Batch Querying:** Parses multiple lockfiles (Cargo, npm, pnpm, yarn, Poetry, pip) and audits them against the Open Source Vulnerability (OSV) database. (Note: This specific feature requires an active internet connection to query the upstream database).
 * **Local Threat Caching:** To prevent network bottlenecks during repeated CI/CD runs, Rustywoof caches OSV API responses locally with a 12-hour Time-To-Live (TTL).
+* **Dependency Sniffing:** Provides deep visibility into your dependency graph, tracing paths from workspace roots to specific vulnerable packages.
 * **Automated Remediation:** Capable of spawning shell processes to force native package managers to update a compromised dependency to a secure target version.
 
 ### 3. Proactive Perimeter Defense
@@ -127,11 +130,23 @@ woof scan ./src
 # Audit project lockfiles against the OSV vulnerability database
 woof audit
 
+# Trace dependency paths leading to a specific package
+woof sniff <packagename>
+
 # Force a package manager to remediate a compromised dependency
-woof remediate axios 1.7.4
+woof remediate <packagename> <version>
+
+# Purge the local threat intelligence cache
+woof cache clean
 
 # Deploy the Watchdog pre-commit guard to block leaked secrets natively in Git
 woof hook install
+
+# For help with available commands and options
+woof help
+
+# For version information
+woof version
 ```
 
 ---
