@@ -1,6 +1,6 @@
 [package]
 name = "rustywoof"
-version = "0.2.1"
+version = "0.2.2"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
@@ -32,7 +32,7 @@ path = "src/main.rs"
 
 [dependencies]
 # The undisputed king of CLI argument parsing in Rust
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
 
 # For blazing fast multi-threading
 rayon = "1.10"
@@ -47,7 +47,7 @@ anyhow = "1.0"
 indicatif = "0.18"
 
 # The official Rust Regex engine
-regex = "1.10"
+regex = { version = "1.10", default-features = false, features = ["std", "perf"] }
 
 # The standard framework for serializing and deserializing Rust data structures
 serde = { version = "1.0", features = ["derive"] }
@@ -56,7 +56,7 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "1.1.2"
 
 # A powerful HTTP client for making network requests (using the synchronous/blocking API here)
-reqwest = { version = "0.13", features = ["blocking", "json"] }
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls", "json"] }
 
 # For gorgeous, highly detailed diagnostic error messages and snippets in the terminal
 miette = { version = "7.6.0", features = ["fancy"] }
@@ -71,13 +71,20 @@ serde_json = "1.0.149"
 aho-corasick = "1.1.4"
 
 # For self-update functionality
-self_update = { version = "0.44.0", features = ["archive-tar", "archive-zip"] }
+self_update = { version = "0.44.0", default-features = false, features = ["archive-tar", "archive-zip", "reqwest", "rustls"] }
 
 # For blazing fast, zero-copy memory-mapped file reading
 memmap2 = "0.9.10"
 
 # For serializing and deserializing Rust data structures
 serde_norway = "0.9.42"
+
+# For graph data structures and BFS pathfinding
+petgraph = { version = "0.8.3", default-features = false }
+
+# For rendering terminal tree visualizations
+ptree = { version = "0.5.2", default-features = false, features = ["ansi"] }
+
 
 [profile.release]
 # Maximum performance optimization

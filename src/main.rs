@@ -2,6 +2,7 @@
 
 use clap::{Parser, Subcommand};
 use miette::Result;
+use std::env;
 use std::process;
 use std::time::Duration;
 
@@ -9,6 +10,7 @@ mod config;
 mod detector;
 mod error;
 mod git;
+pub mod graph;
 mod scanner;
 mod supply_chain;
 pub mod updater;
@@ -60,11 +62,26 @@ enum Commands {
         version: String,
     },
 
+    /// Analyzes the dependency graph to trace paths leading to a specific package
+    Sniff {
+        #[arg(help = "The target package name to trace")]
+        package: String,
+    },
+
     /// Executes a comprehensive perimeter sweep (Audit + Scan)
     Patrol,
 
     /// Updates the Rustywoof engine to the latest version
     Update,
+
+    /// Manages local cache state
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
+    },
+
+    /// Displays version information
+    Version,
 }
 
 #[derive(Subcommand)]
@@ -75,8 +92,19 @@ enum HookAction {
     Remove,
 }
 
+#[derive(Subcommand)]
+enum CacheAction {
+    /// Purges the OSV threat intelligence cache
+    Clean,
+}
+
 fn main() -> Result<()> {
-    // 1. Fire and forget the background update checker immediately
+    // Force color support for CLI tools
+    #[allow(unused_unsafe)]
+    unsafe {
+        env::set_var("CLICOLOR_FORCE", "1");
+    }
+
     let update_receiver = crate::updater::spawn_update_checker();
 
     // Optional: Setup miette's graphical error handler strictly for terminal environments
@@ -125,6 +153,14 @@ fn main() -> Result<()> {
             supply_chain::remediate_vulnerability(package, version)?;
         }
 
+        Commands::Sniff { package } => {
+            crate::graph::analyzer::execute_sniff(package)?;
+        }
+
+        Commands::Version => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+        }
+
         Commands::Patrol => {
             println!("[INFO] Deploying Watchdog for full perimeter patrol...\n");
 
@@ -158,6 +194,23 @@ fn main() -> Result<()> {
         Commands::Update => {
             crate::updater::execute_update()?;
         }
+
+        Commands::Cache { action } => match action {
+            CacheAction::Clean => {
+                for i in 1..=4 {
+                    let cache_name = if i == 1 {
+                        "woof_osv_cache".to_string()
+                    } else {
+                        format!("woof_osv_cache_{}", i)
+                    };
+                    let cache_dir = std::env::temp_dir().join(cache_name);
+                    let _ = std::fs::remove_dir_all(cache_dir);
+                }
+                println!(
+                    "\x1b[32m[INFO] Local OSV threat intelligence cache completely purged.\x1b[0m"
+                );
+            }
+        },
     }
 
     // 2. Check if the background thread found an update
