@@ -1,6 +1,6 @@
 [package]
 name = "rustywoof"
-version = "0.2.3"
+version = "0.2.4"
 rust-version = "1.94"
 edition = "2024"
 description = "A blazing fast, relentless secret scanner & supply chain defensive tool. Written in Rust"
@@ -102,9 +102,3 @@ panic = "abort"
 [profile.dist]
 inherits = "release"
 lto = "thin"
-
-# Customize the archive format to avoid .tar.xz on Unix
-[workspace.metadata.dist]
-# Force cargo-dist to output standard .tar.gz instead of .tar.xz
-unix-archive = ".tar.gz"
-windows-archive = ".zip"

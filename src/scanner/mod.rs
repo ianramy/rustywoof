@@ -6,15 +6,15 @@ use crate::detector::entropy;
 use crate::detector::rules::{CORE_RULES, RULE_MATCHER};
 use ignore::WalkBuilder;
 use ignore::overrides::OverrideBuilder;
-use indicatif::{ProgressBar, ProgressStyle};
 use memmap2::MmapOptions;
 use miette::{Diagnostic, NamedSource, Report, SourceSpan};
-use std::collections::VecDeque;
+use std::collections::HashMap;
 use std::fs::File;
+use std::path::Component;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::Instant;
 use thiserror::Error;
 
 /// Maximum allowable file size to scan (5 Megabytes).
@@ -56,6 +56,8 @@ impl Diagnostic for SecurityDiagnostic {
 
 /// Executes a multi-threaded perimeter sweep of the target directory.
 pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
+    let start_time = Instant::now();
+
     // Ensure the .env perimeter is secure before we begin file traversal
     if let Err(e) = env_guard::secure_perimeter() {
         println!("{:?}", e);
@@ -89,39 +91,69 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
         }
     }
 
+    // ==========================================
+    // 1. PRE-FLIGHT INDEXING (Lightning Fast)
+    // ==========================================
+    let mut total_bytes = 0u64;
+    let mut expected_files = 0u64;
+    let mut folder_sizes: HashMap<String, u64> = HashMap::new();
+
+    if !is_ci {
+        println!("[INFO] Indexing perimeter...");
+        let index_walker = builder.build(); // Synchronous walker just for metadata
+
+        for entry in index_walker.flatten() {
+            if entry.file_type().is_some_and(|ft| ft.is_file())
+                && let Ok(metadata) = entry.metadata()
+            {
+                let size = metadata.len();
+
+                // Skip massive files in our total calculation
+                if size > MAX_FILE_SIZE_BYTES {
+                    continue;
+                }
+
+                total_bytes += size;
+                expected_files += 1;
+
+                // Grab the top-level folder name to accumulate sizes
+                if let Some(Component::Normal(folder)) = entry.path().components().next() {
+                    let folder_name = folder.to_string_lossy().to_string();
+                    *folder_sizes.entry(folder_name).or_insert(0) += size;
+                }
+            }
+        }
+
+        // Sort folders highest to lowest byte count
+        let mut sorted_folders: Vec<_> = folder_sizes.into_iter().collect();
+        sorted_folders.sort_by_key(|b| std::cmp::Reverse(b.1));
+
+        // Format the top 3 heaviest folders
+        let top_folders = sorted_folders
+            .into_iter()
+            .take(3)
+            .map(|(name, size)| format!("{}/ ({:.1} MiB)", name, size as f64 / 1_048_576.0))
+            .collect::<Vec<_>>()
+            .join(" | ");
+
+        if !top_folders.is_empty() {
+            println!("[INFO] Heaviest targets: {}", top_folders);
+        }
+    }
+
     let walker = builder.build_parallel();
     let scanned_count = Arc::new(AtomicUsize::new(0));
     let (tx, rx) = mpsc::channel::<SecurityDiagnostic>();
 
-    // Thread-safe rolling queue to hold the last 4 scanned files
-    let recent_files: Arc<Mutex<VecDeque<String>>> =
-        Arc::new(Mutex::new(VecDeque::with_capacity(4)));
-
-    // 1. Initialize the Progress Bar only if we are not in a CI environment
-    let spinner = if !is_ci {
-        let pb = ProgressBar::new_spinner();
-        pb.enable_steady_tick(Duration::from_millis(80));
-        pb.set_style(
-            ProgressStyle::with_template("{spinner:.cyan} {msg}")
-                .unwrap()
-                .tick_strings(&["⠋", "⠙", "⠚", "⠞", "⠖", "⠦", "⠴", "⠲", "⠳", "⠓"]),
-        );
-        pb.set_message(format!(
-            "Initializing perimeter sweep on {}...",
-            target_path
-        ));
-        Some(pb)
-    } else {
-        None
-    };
+    // 2. Initialize the True Progress Bar using the UI module
+    let spinner = crate::ui::build_scanner_pb(total_bytes, is_ci);
 
     walker.run(|| {
         let scanned_count = scanned_count.clone();
         let tx = tx.clone();
 
-        // 2. Clone the spinner and queue references so they can be safely moved into multiple worker threads
+        // 3. Clone the spinner reference so it can be safely moved into multiple worker threads
         let worker_spinner = spinner.clone();
-        let worker_recent = recent_files.clone();
 
         Box::new(move |result| {
             if let Ok(entry) = result {
@@ -146,14 +178,21 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                     Err(_) => return ignore::WalkState::Continue,
                 };
 
+                // Update metrics as soon as the file is safely loaded into memory
+                let current_file_count = scanned_count.fetch_add(1, Ordering::Relaxed) + 1;
+                if let Some(pb) = &worker_spinner {
+                    pb.inc(mmap.len() as u64);
+                    pb.set_message(format!("{}/{} files", current_file_count, expected_files));
+                }
+
                 // Binary Fast-Fail Heuristic
                 let check_len = std::cmp::min(mmap.len(), 512);
                 if mmap[..check_len].contains(&0) {
                     return ignore::WalkState::Continue;
-                } // Ensure the file is valid UTF-8 before running the rules
-                if let Ok(content) = std::str::from_utf8(&mmap) {
-                    scanned_count.fetch_add(1, Ordering::Relaxed);
+                }
 
+                // Ensure the file is valid UTF-8 before running the rules
+                if let Ok(content) = std::str::from_utf8(&mmap) {
                     let matches = RULE_MATCHER.find_iter(content);
 
                     for mat in matches {
@@ -197,23 +236,6 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
                             let _ = tx.send(diagnostic);
                         }
                     }
-
-                    // 3. Dynamically update the rolling window of the last 4 scanned files
-                    if let Some(pb) = &worker_spinner {
-                        let mut recent = worker_recent.lock().unwrap();
-
-                        // Keep the window at exactly 4 items to prevent UI tearing
-                        if recent.len() >= 4 {
-                            recent.pop_front();
-                        }
-
-                        // \x1b[32m✓\x1b[0m is the standard ANSI escape code for a green tick
-                        recent.push_back(format!("\x1b[32m✓\x1b[0m {}", entry.path().display()));
-
-                        // Join the active queue with newlines and indentation for a clean UI block
-                        let display_text = recent.iter().cloned().collect::<Vec<_>>().join("\n  ");
-                        pb.set_message(format!("Analyzing perimeter...\n  {}", display_text));
-                    }
                 }
             }
             ignore::WalkState::Continue
@@ -225,25 +247,36 @@ pub fn execute_sweep(target_path: &str, is_ci: bool) -> bool {
     let total_files = scanned_count.load(Ordering::Relaxed);
     let all_findings: Vec<SecurityDiagnostic> = rx.into_iter().collect();
 
+    let duration = start_time.elapsed();
+    let time_str = if duration.as_secs() > 0 {
+        format!("{:.2}s", duration.as_secs_f64())
+    } else {
+        format!("{}ms", duration.as_millis())
+    };
+
     if is_ci {
         if all_findings.is_empty() {
             println!(
-                r#"{{"status": "success", "files_scanned": {}, "threats": 0}}"#,
-                total_files
+                r#"{{"status": "success", "files_scanned": {}, "threats": 0, "time": "{}"}}"#,
+                total_files, time_str
             );
         } else {
             println!(
-                r#"{{"status": "failure", "files_scanned": {}, "threats": {}}}"#,
+                r#"{{"status": "failure", "files_scanned": {}, "threats": {}, "time": "{}"}}"#,
                 total_files,
-                all_findings.len()
+                all_findings.len(),
+                time_str
             );
         }
     } else {
-        // 4. Terminate the spinner gracefully, replacing the multiline block with a single final summary
+        // 4. Terminate the spinner gracefully, leaving it pinned to the terminal
         if let Some(pb) = spinner {
-            pb.finish_and_clear();
+            pb.finish();
         }
-        println!("\n[INFO] Sweep complete. Analyzed {} files.", total_files);
+        println!(
+            "\n[INFO] Sweep complete. Analyzed {} files in {}.",
+            total_files, time_str
+        );
 
         if all_findings.is_empty() {
             println!("\x1b[32m✓\x1b[0m [INFO] Status: SECURE. No cryptographic assets exposed.");

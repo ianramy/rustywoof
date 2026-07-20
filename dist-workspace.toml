@@ -19,3 +19,6 @@ publish-jobs = ["npm"]
 install-updater = true
 # Skip checking whether the specified configuration files are up to date
 allow-dirty = ["ci"]
+# Force cargo-dist to output standard .tar.gz instead of .tar.xz
+unix-archive = ".tar.gz"
+windows-archive = ".zip"

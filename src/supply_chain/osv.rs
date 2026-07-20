@@ -74,6 +74,9 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
         return Ok(true);
     }
 
+    let spinner = crate::ui::build_osv_spinner();
+    spinner.set_message("Hashing dependencies for cache lookup...");
+
     let mut hasher = DefaultHasher::new();
     dependencies.hash(&mut hasher);
     let cache_key = hasher.finish();
@@ -91,6 +94,7 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
         && let Ok(duration) = SystemTime::now().duration_since(modified)
         && duration.as_secs() < 43200
     {
+        spinner.set_message("Reading local threat cache...");
         // 12 hours
         if let Ok(cached_data) = fs::read_to_string(&cache_file) {
             response_json = serde_json::from_str(&cached_data).ok();
@@ -100,10 +104,16 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
     // Network Fallback
     let response_json = match response_json {
         Some(json) => {
-            println!("[INFO] Threat intelligence loaded from local cache.");
+            // Suspend the spinner to permanently print the cache notification to the terminal
+            spinner.suspend(|| {
+                println!("\x1b[34mℹ\x1b[0m \x1b[90mThreat intelligence loaded from local cache.\x1b[0m");
+                println!("  \x1b[90mHint: Run `woof cache clean` to force a real-time OSV database sync.\x1b[0m\n");
+            });
+            spinner.set_message("Parsing cached database response...");
             json
         }
         None => {
+            spinner.set_message("Querying remote OSV database...");
             let client = Client::new();
             let queries: Vec<_> = dependencies
                 .iter()
@@ -118,6 +128,7 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
                 .send()
                 .into_diagnostic()?;
 
+            spinner.set_message("Parsing database response...");
             let json: serde_json::Value = response.json().into_diagnostic()?;
 
             if let Ok(json_string) = serde_json::to_string(&json) {
@@ -130,7 +141,13 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
     let mut is_clean = true;
 
     if let Some(results) = response_json.get("results").and_then(|r| r.as_array()) {
+        let total = results.len();
         for (index, result) in results.iter().enumerate() {
+            spinner.set_message(format!(
+                "Cross-referencing package {}/{}...",
+                index + 1,
+                total
+            ));
             // Collapse the `is_empty` check into the `if let`
             if let Some(vulns) = result.get("vulns").and_then(|v| v.as_array())
                 && !vulns.is_empty()
@@ -138,6 +155,7 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
                 is_clean = false;
                 let (pkg, ver, eco) = &dependencies[index];
 
+                spinner.set_message(format!("Fetching remediation strategies for {}...", pkg));
                 // Batch query only returns IDs. Fetch full details for remediation.
                 let client = Client::new();
                 let full_vuln_data = client
@@ -234,19 +252,23 @@ pub fn batch_query_osv(dependencies: &[(String, String, String)]) -> Result<bool
                     (Some(fixed_versions.join(", ")), best_cmd)
                 };
 
-                println!(
-                    "{:?}",
-                    Report::new(VulnerabilityDiagnostic {
-                        package_name: pkg.clone(),
-                        version: ver.clone(),
-                        ecosystem: eco.clone(),
-                        cve_ids: cve_string,
-                        fixed_version_display,
-                        fixed_version_cmd,
-                    })
-                );
+                let diagnostic = VulnerabilityDiagnostic {
+                    package_name: pkg.clone(),
+                    version: ver.clone(),
+                    ecosystem: eco.clone(),
+                    cve_ids: cve_string,
+                    fixed_version_display,
+                    fixed_version_cmd,
+                };
+
+                spinner.suspend(|| {
+                    println!("{:?}", Report::new(diagnostic));
+                });
             }
         }
     }
+
+    // Use finish_with_message so the UI component stays pinned to the screen!
+    spinner.finish_with_message("Threat intelligence analysis complete.");
     Ok(is_clean)
 }

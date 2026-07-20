@@ -13,6 +13,7 @@ mod git;
 pub mod graph;
 mod scanner;
 mod supply_chain;
+pub mod ui;
 pub mod updater;
 
 #[derive(Parser)]
