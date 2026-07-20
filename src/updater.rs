@@ -16,7 +16,6 @@ pub fn execute_update() -> Result<()> {
         .bin_name("woof")
         .show_download_progress(true)
         .current_version(cargo_crate_version!())
-        .identifier(".tar.gz")
         .build()
         .map_err(|e| miette!("Failed to configure the update engine: {}", e))?
         .update()

@@ -175,5 +175,4 @@ pattern = "api_prod_[a-zA-Z0-9]{32}"
 
 ## License
 
-This software is distributed under the [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html). 
-See the [LICENSE](LICENSE) file in the repository for full details.
+This project is dual-licensed under either the [MIT license](LICENSE-MIT) or the [Apache License, Version 2.0](LICENSE-APACHE), at your option.
