@@ -313,7 +313,7 @@ jobs:
       - name: Prepare binaries for cargo-npm
         run: |
           # 1. Extract archives directly into the workspace root
-          for f in target/distrib/*.tar.xz; do tar -xf "$f" 2>/dev/null || true; done
+          for f in target/distrib/*.tar.gz; do tar -xf "$f" 2>/dev/null || true; done
           # Force zip files to extract into a folder so the loop below catches it
           for f in target/distrib/*.zip; do
             if [ -f "$f" ]; then

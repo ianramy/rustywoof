@@ -1713,6 +1713,8 @@ version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2e79722b5a505d4ddc77527455a97244e9e8c4c07533ff44cf4421cce7bb6d17"
 dependencies = [
+ "either",
+ "flate2",
  "http",
  "indicatif",
  "log",

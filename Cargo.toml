@@ -71,7 +71,7 @@ serde_json = "1.0.149"
 aho-corasick = "1.1.4"
 
 # For self-update functionality
-self_update = { version = "0.44.0", default-features = false, features = ["archive-tar", "archive-zip", "compression-xz", "reqwest", "rustls"] }
+self_update = { version = "0.44.0", default-features = false, features = ["archive-tar", "archive-zip", "compression-flate2", "reqwest", "rustls"] }
 
 # For blazing fast, zero-copy memory-mapped file reading
 memmap2 = "0.9.10"
@@ -102,3 +102,9 @@ panic = "abort"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# Customize the archive format to avoid .tar.xz on Unix
+[workspace.metadata.dist]
+# Force cargo-dist to output standard .tar.gz instead of .tar.xz
+unix-archive = ".tar.gz"
+windows-archive = ".zip"
