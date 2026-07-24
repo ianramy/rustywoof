@@ -4,7 +4,6 @@ use clap::{Parser, Subcommand};
 use miette::Result;
 use std::env;
 use std::process;
-use std::time::Duration;
 
 mod config;
 mod detector;
@@ -14,7 +13,6 @@ pub mod graph;
 mod scanner;
 mod supply_chain;
 pub mod ui;
-pub mod updater;
 
 #[derive(Parser)]
 #[command(
@@ -72,9 +70,6 @@ enum Commands {
     /// Executes a comprehensive perimeter sweep (Audit + Scan)
     Patrol,
 
-    /// Updates the Rustywoof engine to the latest version
-    Update,
-
     /// Manages local cache state
     Cache {
         #[command(subcommand)]
@@ -105,8 +100,6 @@ fn main() -> Result<()> {
     unsafe {
         env::set_var("CLICOLOR_FORCE", "1");
     }
-
-    let update_receiver = crate::updater::spawn_update_checker();
 
     // Optional: Setup miette's graphical error handler strictly for terminal environments
     // This ensures colors and formatting are pristine.
@@ -192,10 +185,6 @@ fn main() -> Result<()> {
             }
         }
 
-        Commands::Update => {
-            crate::updater::execute_update()?;
-        }
-
         Commands::Cache { action } => match action {
             CacheAction::Clean => {
                 for i in 1..=4 {
@@ -214,17 +203,7 @@ fn main() -> Result<()> {
         },
     }
 
-    // 2. Check if the background thread found an update
-    if !matches!(cli.command, Commands::Update)
-        && let Ok(Some(new_version)) = update_receiver.recv_timeout(Duration::from_millis(150))
-    {
-        println!(
-            "\n\x1b[33m[NOTICE]\x1b[0m A new engine update (v{}) is available! Run `woof update` to update.",
-            new_version
-        );
-    }
-
-    // 3. Gracefully exit with the correct system code
+    // 2.Gracefully exit with the correct system code
     if exit_code != 0 {
         process::exit(exit_code);
     }
