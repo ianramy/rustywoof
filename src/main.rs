@@ -1,6 +1,7 @@
 // src/main.rs
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use miette::Result;
 use std::env;
 use std::process;
@@ -12,7 +13,9 @@ mod git;
 pub mod graph;
 mod scanner;
 mod supply_chain;
+mod terminal;
 pub mod ui;
+pub mod updater;
 
 #[derive(Parser)]
 #[command(
@@ -76,8 +79,18 @@ enum Commands {
         action: CacheAction,
     },
 
+    /// Generates shell completion scripts for woof
+    Generate {
+        /// The target shell (bash, zsh, fish, powershell, elvish)
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+
     /// Displays version information
     Version,
+
+    /// Updates the Rustywoof engine to the latest version
+    Update,
 }
 
 #[derive(Subcommand)]
@@ -151,6 +164,10 @@ fn main() -> Result<()> {
             crate::graph::analyzer::execute_sniff(package)?;
         }
 
+        Commands::Update => {
+            updater::execute_update()?;
+        }
+
         Commands::Version => {
             println!("{}", env!("CARGO_PKG_VERSION"));
         }
@@ -201,9 +218,18 @@ fn main() -> Result<()> {
                 );
             }
         },
+
+        Commands::Generate { shell } => {
+            // Rebuild the clap::Command dynamically to inspect its arguments
+            let mut cmd = Cli::command();
+            let bin_name = cmd.get_name().to_string();
+
+            // Pass the extracted data into the terminal module
+            terminal::print_completions(*shell, &mut cmd, &bin_name);
+        }
     }
 
-    // 2.Gracefully exit with the correct system code
+    // Gracefully exit with the correct system code
     if exit_code != 0 {
         process::exit(exit_code);
     }

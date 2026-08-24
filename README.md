@@ -152,6 +152,36 @@ woof version
 
 ---
 
+## Shell Completions
+
+Rustywoof supports native auto-completion for your favorite shell, making it easier to discover commands and flags on the fly. 
+
+To enable tab completions, run the `generate` command for your specific shell and pipe the output to your shell's completion directory.
+
+**For Fish:**
+```bash
+woof generate fish > ~/.config/fish/completions/woof.fish
+```
+
+**For Zsh:**
+```bash
+# Ensure ~/.zfunc is added to your $fpath in .zshrc
+woof generate zsh > ~/.zfunc/_woof
+```
+
+**For Bash:**
+```bash
+woof generate bash > ~/.local/share/bash-completion/completions/woof
+```
+
+**For PowerShell:**
+```powershell
+woof generate powershell > $PROFILE\..\woof-completions.ps1
+# Then add `. $PROFILE\..\woof-completions.ps1` to your PowerShell profile
+```
+
+----
+
 ## Configuration
 
 Run `woof init` to generate a `.woof.toml` configuration file in your project root. This allows teams to define domain-specific rules, suppress false positives via entropy tuning, and manage scan perimeters.
