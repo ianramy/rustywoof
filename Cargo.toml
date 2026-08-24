@@ -79,6 +79,23 @@ petgraph = { version = "0.8.3", default-features = false }
 # For rendering terminal tree visualizations
 ptree = { version = "0.5.2", default-features = false, features = ["ansi"] }
 
+# For generating shell completion scripts
+clap_complete = "4.6.7"
+
+# For securely creating and managing temporary files and directories that clean up after themselves
+tempfile = "3.27.0"
+
+# For fast DEFLATE compression and decompression (handling .gz files)
+flate2 = "1.1.9"
+
+# For reading and writing standard tar archives
+tar = "0.4.46"
+
+# For reading and writing ZIP archives (highly common on Windows)
+zip = "8.6.0"
+
+# For safely bypassing OS file locks to overwrite the currently running executable
+self-replace = "1.5.0"
 
 [profile.release]
 # Maximum performance optimization
