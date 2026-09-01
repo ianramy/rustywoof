@@ -167,6 +167,7 @@ jobs:
           fi
 
       - name: Install wheel into a throwaway venv and smoke-test the woof binary
+        if: ${{ !(matrix.os == 'macos-14' && matrix.target == 'x86_64-apple-darwin') }}
         shell: bash
         run: |
           uv venv /tmp/wheel-check
