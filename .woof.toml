@@ -1,0 +1,18 @@
+ignore_paths = [
+    "**/*.rs.bk",
+    "*.pdb",
+    ".env/",
+    ".git/",
+    ".venv/",
+    "debug/",
+    "dist/",
+    "docs/",
+    "node_modules/",
+    "rust-project.json",
+    "target/",
+    "tests/",
+    "tmp/",
+    "venv/",
+]
+custom_rules = []
+min_entropy = 3.0
