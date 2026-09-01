@@ -11,6 +11,28 @@ Rustywoof is distributed as a standalone binary and via popular package managers
     ```bash {.mac-terminal}
     cargo install rustywoof
     ```
+    
+=== ":fontawesome-brands-python: PyPI"
+
+    Install directly from PyPI. For standalone CLI tools, using a tool manager is highly recommended to avoid global environment conflicts.
+
+    === "uv"
+        Install globally as a tool using `uv`:
+        ```bash {.mac-terminal}
+        uv tool install rustywoof
+        ```
+        *Note: If you are adding this to a Python project, use `uv add rustywoof` instead.*
+
+    === "pipx"
+        Install in an isolated environment using `pipx` (avoids PEP 668 errors on modern OSs):
+        ```bash {.mac-terminal}
+        pipx install rustywoof
+        ```
+
+    === "pip"
+        ```bash {.mac-terminal}
+        pip install rustywoof
+        ```
 
 === ":fontawesome-brands-node-js: Node Ecosystem"
 
@@ -69,5 +91,5 @@ If you prefer to download pre-compiled binaries, you can use standard OS package
 
     Once installed, verify the binary is accessible in your path by checking the version.
     ```bash {.mac-terminal}
-    rustywoof --version
+    woof --version
     ```

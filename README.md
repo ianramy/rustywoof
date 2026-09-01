@@ -6,7 +6,7 @@
   <br>
 
   [![Build](https://img.shields.io/badge/build-Passing-green.svg?style=flat-square&logo=rust)]()
-  [![Version](https://img.shields.io/badge/version-v0.2.4-orange.svg?style=flat-square&logo=rust)]()
+  [![Version](https://img.shields.io/badge/version-v0.3.0-orange.svg?style=flat-square&logo=rust)]()
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
   [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](https://opensource.org/licenses/Apache-2.0)
   [![Category](https://img.shields.io/badge/category-Cybersecurity-red.svg)]()
@@ -113,6 +113,22 @@ yarn global add @ianramy/rustywoof
 
 ```bash
 bun install -g @ianramy/rustywoof
+```
+
+### Option 5: PyPI
+
+Install directly from PyPI. This is recommended if you already have a Python configured.
+
+```bash
+pip install rustywoof
+```
+
+```bash
+uv tool install rustywoof
+```
+
+```bash
+uv add rustywoof
 ```
 
 ---
