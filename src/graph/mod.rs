@@ -1,8 +1,10 @@
 // src/graph/mod.rs
 
-pub mod analyzer;
-pub mod models;
-pub mod pathfinder;
-pub mod visualizer;
+pub mod define_dependency_models;
+pub mod orchestrate_graph_analysis;
+pub mod render_dependency_tree;
+pub mod traverse_dependency_paths;
 
-pub use models::{DependencyEdge, DependencyGraph, DependencyKind, Ecosystem, PackageNode};
+pub use define_dependency_models::{
+    DependencyEdge, DependencyGraph, DependencyKind, Ecosystem, PackageNode,
+};
