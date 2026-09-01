@@ -101,6 +101,28 @@ Get started in seconds. RustyWoof is distributed as a single, statically linked 
     cargo install rustywoof
     ```
 
+=== ":fontawesome-brands-python: PyPI"
+
+    Install directly from PyPI. For standalone CLI tools, using a tool manager is highly recommended to avoid global environment conflicts.
+
+    === "uv"
+        Install globally as a tool using `uv`:
+        ```bash {.mac-terminal}
+        uv tool install rustywoof
+        ```
+        *Note: If you are adding this to a Python project, use `uv add rustywoof` instead.*
+
+    === "pipx"
+        Install in an isolated environment using `pipx` (avoids PEP 668 errors on modern OSs):
+        ```bash {.mac-terminal}
+        pipx install rustywoof
+        ```
+
+    === "pip"
+        ```bash {.mac-terminal}
+        pip install rustywoof
+        ```
+
 === ":fontawesome-brands-node-js: Node Ecosystem"
 
     Rustywoof provides wrappers for all major Node package managers. 
