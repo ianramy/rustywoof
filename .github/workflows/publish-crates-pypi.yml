@@ -1,0 +1,207 @@
+# .github/workflows/publish-crates-pypi.yml
+#
+# Publishes rustywoof to crates.io and PyPI, strictly after the existing
+# `Release` workflow's `publish-npm` job has succeeded.
+
+name: Publish crates.io & PyPI
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  gate-on-npm:
+    name: Verify publish-npm succeeded
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+    outputs:
+      tag: ${{ steps.info.outputs.tag }}
+      sha: ${{ steps.info.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - id: info
+        run: |
+          run_id="${{ github.event.workflow_run.id }}"
+          tag="${{ github.event.workflow_run.head_branch }}"
+          sha="${{ github.event.workflow_run.head_sha }}"
+
+          echo "Triggering Release run: $run_id"
+          echo "Resolved tag: $tag"
+          echo "Resolved sha: $sha"
+
+          jobs_json=$(gh api "repos/${{ github.repository }}/actions/runs/${run_id}/jobs" --paginate)
+          npm_conclusion=$(echo "$jobs_json" | jq -r '.jobs[] | select(.name == "Publish to npm") | .conclusion')
+
+          echo "publish-npm job conclusion: ${npm_conclusion:-<job not found>}"
+
+          if [ "$npm_conclusion" != "success" ]; then
+            echo "::error::publish-npm did not succeed in Release run ${run_id} (conclusion: ${npm_conclusion:-not found}). Aborting crates.io/PyPI publish."
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  verify-version-consistency:
+    name: Verify tag matches Cargo.toml version
+    needs: gate-on-npm
+    if: success()
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.gate-on-npm.outputs.sha }}
+          persist-credentials: false
+
+      - name: Compare tag and Cargo.toml version
+        run: |
+          TAG="${{ needs.gate-on-npm.outputs.tag }}"
+          TAG_VERSION=$(echo "$TAG" | sed -E 's#^.*/##; s#^v##')
+          CARGO_VERSION=$(grep -m1 '^version' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+
+          echo "tag_version=$TAG_VERSION cargo_version=$CARGO_VERSION"
+
+          if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
+            echo "::error::Version mismatch: tag resolves to $TAG_VERSION but Cargo.toml has $CARGO_VERSION."
+            exit 1
+          fi
+
+          if [ ! -f pyproject.toml ]; then
+            echo "::error::pyproject.toml not found. See SETUP_AND_AUTH_GUIDE.md before this workflow can run for real."
+            exit 1
+          fi
+
+          if ! grep -q 'dynamic' pyproject.toml || ! grep -q '"version"' pyproject.toml; then
+            echo "::warning::pyproject.toml does not appear to declare dynamic = [\"version\"]. Recommended so maturin derives the version from Cargo.toml as the single source of truth, instead of a second hand-maintained version string that can drift."
+          fi
+
+  dry-run-rust:
+    name: Cargo dry-run (package + publish --dry-run)
+    needs: [gate-on-npm, verify-version-consistency]
+    if: success()
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.gate-on-npm.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup update stable
+
+      - name: Cargo package
+        run: cargo package --locked
+
+      - name: Cargo publish dry-run
+        run: cargo publish --dry-run --locked
+
+  build-and-test-wheel:
+    name: Build & smoke-test wheel (${{ matrix.target }})
+    needs: [gate-on-npm, verify-version-consistency]
+    if: success()
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.gate-on-npm.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup update stable
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build wheel with maturin (bin bindings)
+        run: uv run --with maturin maturin build --release --target ${{ matrix.target }} --out dist
+
+      - name: Determine venv layout for this OS
+        id: venvdir
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "bindir=Scripts" >> "$GITHUB_OUTPUT"
+            echo "ext=.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "bindir=bin" >> "$GITHUB_OUTPUT"
+            echo "ext=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install wheel into a throwaway venv and smoke-test the woof binary
+        shell: bash
+        run: |
+          uv venv /tmp/wheel-check
+          uv pip install --python "/tmp/wheel-check/${{ steps.venvdir.outputs.bindir }}/python${{ steps.venvdir.outputs.ext }}" dist/*.whl
+          "/tmp/wheel-check/${{ steps.venvdir.outputs.bindir }}/woof${{ steps.venvdir.outputs.ext }}" version
+
+      - name: Upload built wheel
+        uses: actions/upload-artifact@v6
+        with:
+          name: python-wheel-${{ matrix.target }}
+          path: dist/*.whl
+
+  publish-crates:
+    name: Publish to crates.io (OIDC)
+    needs: [gate-on-npm, dry-run-rust, build-and-test-wheel]
+    if: success()
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.gate-on-npm.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Rust
+        run: rustup update stable
+
+      - name: Authenticate to crates.io via OIDC
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      - name: Publish to crates.io
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  publish-pypi:
+    name: Publish to PyPI (OIDC)
+    needs: publish-crates
+    if: success()
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+    steps:
+      - name: Download all pre-built, pre-tested wheels
+        uses: actions/download-artifact@v7
+        with:
+          pattern: python-wheel-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
