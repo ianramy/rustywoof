@@ -1,23 +1,28 @@
 // src/updater/mod.rs
 
-//! Handles the `woof update` command. Detects how rustywoof was installed and
-//! performs the update automatically. Falls back to a direct GitHub release
-//! download and atomic binary swap only when no package manager is detected.
+pub mod detect_package_manager_context;
+pub mod execute_package_manager_update;
+pub mod extract_release_archive;
+pub mod orchestrate_engine_update;
+pub mod replace_host_executable;
+pub mod resolve_github_release;
 
-mod archive_extraction;
-mod github_release_update;
-mod package_manager_update;
+use execute_package_manager_update::SystemUpdateCommandRunner;
+use miette::{IntoDiagnostic, Result};
+use replace_host_executable::SystemReplacer;
+use std::env;
 
-use miette::Result;
-use package_manager_update::detect_package_manager;
-
-/// Runs the full update flow with zero manual steps required from the user:
-/// automatically invokes the detected package manager, or falls back to
-/// downloading and atomically installing the latest GitHub release binary.
 pub fn execute_update() -> Result<()> {
-    if let Some(manager) = detect_package_manager()? {
-        return package_manager_update::run_automatic_update(manager);
-    }
+    let current_exe = env::current_exe().into_diagnostic()?;
+    let path_str = current_exe.to_string_lossy();
+    let api_url = "https://api.github.com/repos/ianramy/rustywoof/releases/latest";
 
-    github_release_update::run_github_release_update()
+    orchestrate_engine_update::orchestrate_update(
+        &path_str,
+        api_url,
+        env!("CARGO_PKG_VERSION"),
+        env!("TARGET"),
+        &SystemUpdateCommandRunner,
+        &SystemReplacer,
+    )
 }
